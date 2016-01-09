@@ -1,0 +1,15 @@
+dist/*
+*.hi
+*.js_hi
+*.js_dyn_hi
+*.js_dyn_o
+*.o
+*.js_o
+.stack-work/
+.cabal-sandbox
+cabal.sandbox.config
+Main.jsexe/*.js
+Main.jsexe/*.js.gz
+Main.jsexe/*.webapp
+Main.jsexe/*.stats
+Main.jsexe/index.html
