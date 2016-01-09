@@ -1,6 +1,6 @@
 {-# LANGUAGE RecursiveDo, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Reflex.Dom.LazyGrid
-  ( module Reflex.Dom.LazyGrid, def, (&), (.~)
+  ( module Reflex.Dom.LazyGrid, module Reflex.Dom.LazyGrid.Css, def, (&), (.~)
   ) where
 
 import           Control.Lens ((^.), makeLenses)
@@ -20,9 +20,9 @@ import           GHCJS.DOM.Element (getOffsetHeight)
 import           Reflex
 import           Reflex.Dom
 
+import           Reflex.Dom.LazyGrid.Css
 import           Reflex.Dom.LazyGrid.Utils
 import           Reflex.Dom.LazyGrid.DomUtils
-
 
 type Columns k v = Map k (Column k v)
 type Rows k v = Map (k, k) v

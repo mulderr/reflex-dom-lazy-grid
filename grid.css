@@ -1,0 +1,219 @@
+/* 
+ * Flex table with scrollable tbody:
+ * https://jsfiddle.net/bakgx0yz/1/
+ */
+
+table.grid-table {
+  display: flex;
+  flex-flow: column nowrap;
+  border-spacing: 0;
+  height: 100%;
+  width: 100%;
+}
+
+table.grid-table thead th .grid-col-filter {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.25rem 0;
+  border: 1px solid rgb(212, 212, 212);
+  padding: 2px;
+}
+
+table.grid-table thead {
+  display: block;
+  flex: 0 0 auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
+/* we always enable vertical scrollbar to perfeclty align headers with body
+   but we dont actually want to see it - dont know of an analog for other
+   browsers */
+table.grid-table thead::-webkit-scrollbar {
+  visibility: hidden;
+}
+
+table.grid-table tbody {
+  display: block;
+  flex: 1 1 auto;
+  overflow: scroll;
+  /* tbody is focusable using tabindex, so make sure to disable outline */
+  outline: none;
+}
+
+table.grid-table tr {
+  width: 100%;
+}
+
+table.grid-table thead tr,
+table.grid-table tbody tr {
+  display: table;
+  table-layout: fixed;
+}
+
+table.grid-table tbody td {
+  height: 30px;
+}
+
+/*
+ * borders
+ */
+table.grid-table th,
+table.grid-table td {
+  border-right: 1px solid rgb(212, 212, 212);
+  padding: .4rem;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+table.grid-table th:first-child,
+table.grid-table td:first-child {
+  border-left: 1px solid rgb(212, 212, 212);
+}
+
+table.grid-table th {
+  border-top: 1px solid rgb(212, 212, 212);
+  border-bottom: 1px solid rgb(212, 212, 212);
+  height: 4rem;
+  background: -webkit-gradient(linear, 0% 100%, 0% 0%, from(rgb(238, 238, 238)), to(rgb(255, 255, 255))) padding-box;
+  text-align: left;
+  vertical-align: top;
+}
+
+/*
+ * zebra
+ */
+table.grid-table tbody tr:nth-child(odd) {
+  background-color: rgb(243, 243, 243);
+}
+
+table.grid-table tbody tr:nth-child(even) {
+  background-color: rgb(253, 253, 253);
+}
+
+/*
+ * virtual scroll
+ */
+table.grid-table tbody x-rowgroup {
+  display: block;
+}
+
+/*
+ * filters
+ */
+table.grid-table .grid-col-filter-clear-btn {
+  position: absolute;
+  right: 0;
+  padding-left: 0.5rem;
+  padding-right: 0.3rem;
+  line-height: 2em;
+  cursor: pointer;
+  color: #888;
+}
+
+table.grid-table .grid-col-filter-clear-btn:before {
+  content: "x";
+}
+
+/*
+ * sorting
+ */
+table.grid-table .grid-col-sort-icon {
+  margin-left: 0.5em;
+}
+
+table.grid-table .grid-col-sort-icon-asc:before {
+  content: "\25be";
+}
+
+table.grid-table .grid-col-sort-icon-desc:before {
+  content: "\25b4";
+}
+
+table.grid-table .grid-col-title {
+  cursor: default;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+table.grid-table .grid-col-title-sort {
+  cursor: pointer;
+}
+
+/*
+ * row selection
+ */
+table.grid-table tbody tr.grid-row-selected td {
+  background-color: rgb(201, 221, 225);
+}
+
+/*
+ * menu
+ */
+.grid-menu-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.5rem;
+  border: 1px solid rgb(212, 212, 212);
+  background-color: #eee;
+  font-weight: bold;
+  z-index: 10;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.grid-menu-toggle:before {
+  content: " \2630";
+}
+
+.grid-menu {
+  position: absolute;
+  top: 2em;
+  right: 1em;
+  display: none;
+  border: 1px solid rgb(212, 212, 212);
+  background-color: #eee;
+}
+
+.grid-menu-open {
+  display: block !important;
+  z-index: 100;
+  box-shadow: 3px 3px 3px #888;
+}
+
+.grid-menu .grid-menu-list {
+  padding: 0;
+  margin: 0;
+}
+
+.grid-menu .grid-menu-list li {
+  list-style-type: none;
+  border-bottom: 1px solid rgb(212, 212, 212);
+  padding: 0.5em 1em;
+  cursor: pointer;
+}
+
+.grid-menu .grid-menu-list li:hover {
+  background-color: #ddd;
+}
+
+.grid-menu .grid-menu-col-visible:before {
+  content: "\2611\00a0"; /* ticked checkbox */
+}
+
+.grid-menu .grid-menu-col-hidden:before {
+  content: "\2610\00a0"; /* empty checkbox */
+}
