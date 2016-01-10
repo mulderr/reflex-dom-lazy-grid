@@ -19,6 +19,8 @@ library
   hs-source-dirs:      src
   exposed-modules:     Reflex.Dom.LazyGrid,
                        Reflex.Dom.LazyGrid.Css
+  other-modules:       Reflex.Dom.LazyGrid.Utils,
+                       Reflex.Dom.LazyGrid.DomUtils
   build-depends:       aeson        >= 0.8      && < 0.11,
                        base         >= 4.7      && < 5,
                        bytestring   >= 0.10     && < 0.11,
@@ -27,7 +29,6 @@ library
                        data-default >= 0.5      && < 0.6,
                        file-embed   >= 0.0.9    && < 0.1,
                        ghcjs-dom    >= 0.2.3.1  && < 0.3,
-                       ghcjs-base   >= 0.2      && < 0.3,
                        lens         >= 4        && < 5,
                        reflex       >= 0.3.2    && < 0.4,
                        reflex-dom   >= 0.2      && < 0.3,
@@ -35,6 +36,10 @@ library
                        time         >= 1.5      && < 1.6,
                        transformers >= 0.4      && < 0.5,
                        unordered-containers >= 0.2.5 && < 0.3
+
+  if impl(ghcjs)
+    build-depends:
+      ghcjs-base   >= 0.2  && < 0.3
 
 test-suite reflex-dom-lazy-grid-test
   type:                exitcode-stdio-1.0

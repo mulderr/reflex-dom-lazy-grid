@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE RecursiveDo, ScopedTypeVariables, TemplateHaskell, TypeFamilies, CPP #-}
 module Reflex.Dom.LazyGrid
   ( module Reflex.Dom.LazyGrid, module Reflex.Dom.LazyGrid.Css, def, (&), (.~)
   ) where
@@ -391,7 +391,11 @@ toCsv cols rows = printCSV $ toFields <$> Map.toList rows
 exportCsv :: MonadWidget t m => Dynamic t (Columns k v) -> Event t (Rows k v) -> m ()
 exportCsv dcols e = do
   doc <- askDocument
+#ifdef ghcjs_HOST_OS
   performEvent_ $ fmap (liftIO . triggerDownload doc "text/csv" "export.csv" . uncurry toCsv) $ attachDyn dcols e
+#else
+  performEvent_ $ fmap (const $ liftIO $ print "export only implemented for GHCJS") e
+#endif
 
 makeLenses ''Column
 makeLenses ''GridConfig

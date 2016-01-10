@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo, ScopedTypeVariables #-}
+{-# LANGUAGE RecursiveDo, ScopedTypeVariables, CPP #-}
 
 module Reflex.Dom.LazyGrid.DomUtils
   ( resizeDetectorDynAttr
@@ -15,15 +15,20 @@ import           Data.Map (Map)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 
+import           GHCJS.DOM.Element hiding (drop)
+import           GHCJS.DOM.EventM (on)
+
+#ifdef ghcjs_HOST_OS
 import           GHCJS.Foreign
 import           GHCJS.Marshal
-import           GHCJS.DOM.Element hiding (drop)
-import qualified GHCJS.DOM.HTMLElement as HE
-import           GHCJS.DOM.EventM (on)
 import           GHCJS.DOM.Blob
 import qualified GHCJS.DOM.Document as D
-import           GHCJS.DOM.URL
+import qualified GHCJS.DOM.HTMLElement as HE
 import           GHCJS.DOM.Types (BlobPropertyBag (..), HTMLDocument, castToHTMLAnchorElement)
+import           GHCJS.DOM.URL
+#else
+import           GHCJS.DOM.Types (HTMLDocument)
+#endif
 
 import           Reflex
 import           Reflex.Dom
@@ -37,6 +42,7 @@ triggerDownload
   -> String -- ^ file name
   -> String -- ^ content
   -> IO ()
+#ifdef ghcjs_HOST_OS
 triggerDownload doc mime filename s = do
   windowUrl <- js_windowURL
   v <- toJSVal s
@@ -54,6 +60,10 @@ triggerDownload doc mime filename s = do
 -- cannot use newURL; createObjectURL is only defined for window.URL?
 foreign import javascript unsafe "window[\"URL\"]"
         js_windowURL :: IO URL
+
+#else
+triggerDownload doc mime filename s = return ()
+#endif
 
 -- | Text input with a button to clear the value.
 -- The button content ie. icon or text is to be defined through CSS using btnClass.
