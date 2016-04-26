@@ -14,9 +14,9 @@ table.grid-table {
 table.grid-table thead th .grid-col-filter {
   width: 100%;
   box-sizing: border-box;
-  margin: 0.25rem 0;
   border: 1px solid rgb(212, 212, 212);
-  padding: 2px;
+  padding: 0 2px;
+  font-weight: normal !important;
 }
 
 table.grid-table thead {
@@ -108,13 +108,13 @@ table.grid-table .grid-col-filter-clear-btn {
   right: 0;
   padding-left: 0.5rem;
   padding-right: 0.3rem;
-  line-height: 2em;
+  line-height: 1.5em;
   cursor: pointer;
   color: #888;
 }
 
 table.grid-table .grid-col-filter-clear-btn:before {
-  content: "x";
+  content: "\2a09";
 }
 
 /*
