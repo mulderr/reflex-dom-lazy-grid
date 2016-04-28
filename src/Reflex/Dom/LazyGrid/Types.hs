@@ -245,11 +245,10 @@ mkGridBody (GridBodyConfig cols rows window selected attrs rowAction) = do
   (tbody, sel) <- elAttr' "tbody" ("tabindex" =: "0") $ elDynAttr "x-rowgroup" attrs $ do
     -- widgetHold is (ab)used to trigger complete redraw if rows or columns change
     sel <- widgetHold (return $ constDyn mempty) $ (do
-      -- we want to sample the columns exactly once for all rows we render
       cs <- sample $ current cols
       listWithKey window $ \k dv -> do
         v <- sample $ current dv
-        r <- rowAction cs k v =<< mapDyn (isJust . Map.lookup k) selected
+        r <- rowAction cs k v =<< mapDyn (Map.member k) selected
         return $ (k, v) <$ domEvent Click r
       ) <$ leftmost [() <$ updated cols, () <$ updated rows]
     return $ joinDyn sel
