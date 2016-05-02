@@ -1,8 +1,8 @@
 name:                reflex-dom-lazy-grid
 version:             0.1.0.0
-synopsis:            Reflex.Dom implementation of a lazy grid
-description:         Lazy grid with virtual scroll, sorting, filtering, column selection and csv export.
-homepage:            http://github.com/mulderr/reflex-dom-lazy-grid#readme
+synopsis:            Lazy grid for Reflex
+description:         Grid with virtual scroll, sorting, filtering, column selection and csv export.
+homepage:            http://github.com/mulderr/reflex-dom-lazy-grid
 license:             BSD3
 license-file:        LICENSE
 author:              Maciej Kazulak
@@ -28,7 +28,6 @@ library
                        containers   >= 0.5      && < 0.6,
                        csv          >= 0.1      && < 0.2,
                        data-default >= 0.5      && < 0.6,
-                       file-embed   >= 0.0.9    && < 0.1,
                        ghcjs-dom    >= 0.2.3.1  && < 0.3,
                        lens         >= 4        && < 5,
                        reflex       >= 0.3.2    && < 0.5,
@@ -41,15 +40,6 @@ library
   if impl(ghcjs)
     build-depends:
       ghcjs-base   >= 0.2  && < 0.3
-
-test-suite reflex-dom-lazy-grid-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  build-depends:       base
-                     , reflex-dom-lazy-grid
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  default-language:    Haskell2010
 
 source-repository head
   type:     git
