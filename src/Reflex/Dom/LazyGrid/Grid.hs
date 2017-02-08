@@ -1,10 +1,11 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Reflex.Dom.LazyGrid.Grid 
+module Reflex.Dom.LazyGrid.Grid
   ( gridManager
   , gridFilter
   , gridSort
@@ -18,11 +19,13 @@ import           Data.List (sortBy)
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           GHCJS.DOM.Element (getOffsetHeight)
 import           Reflex
 import           Reflex.Dom
 
-import           Reflex.Dom.LazyGrid.DomUtils (resizeDetectorDynAttr)
+import           Reflex.Dom.LazyGrid.DomUtils (resizeDetectorDynAttr, tshow)
 import           Reflex.Dom.LazyGrid.Types
 import           Reflex.Dom.LazyGrid.Utils
 
@@ -68,10 +71,10 @@ gridWindowManager :: forall t m k v . (MonadWidget t m, Ord k)
                   -> Dynamic t (Rows k v)
                   -> m (GridWindow t k v)
 gridWindowManager rowHeight extra height scrollTop xs = do
-  firstIndex <- (return . nubDyn) =<< foldDyn toFirstIdx 0 (updated scrollTop)
-  windowSize <- (return . nubDyn) =<< mapDyn toWindowSize height
+  firstIndex <- (return . uniqDyn) =<< foldDyn toFirstIdx 0 (updated scrollTop)
+  let windowSize = uniqDyn $ fmap toWindowSize height
   window <- combineDyn3 toWindow firstIndex windowSize xs
-  attrs <- (return . nubDyn) =<< combineDyn toWindowAttrs firstIndex =<< mapDyn Map.size xs
+  let attrs = uniqDyn $ zipDynWith toWindowAttrs firstIndex $ fmap Map.size xs
   return $ GridWindow firstIndex windowSize window attrs
   where
     -- first index parity must be stable not to have the zebra "flip" when using css :nth-child
@@ -94,7 +97,7 @@ gridWindowManager rowHeight extra height scrollTop xs = do
     -- - height - includes content height and offset from the bottom
     -- the main invariant being:
     --   rowCount * rowHeight = top + height
-    toWindowAttrs :: Int -> Int -> Map String String
+    toWindowAttrs :: Int -> Int -> Map Text Text
     toWindowAttrs firstIdx rowCount =
       let total = rowCount * rowHeight
           woffset = cutAtZero $ firstIdx * rowHeight
@@ -102,8 +105,8 @@ gridWindowManager rowHeight extra height scrollTop xs = do
           cutAtZero x = if x < 0 then 0 else x
       in toStyleAttr $ "position" =: "relative"
                     <> "overflow" =: "hidden"
-                    <> "top"      =: (show woffset <> "px")
-                    <> "height"   =: (show wheight <> "px")
+                    <> "top"      =: (tshow woffset <> "px")
+                    <> "height"   =: (tshow wheight <> "px")
       where
         toStyleAttr m = "style" =: (Map.foldrWithKey (\k v s -> k <> ":" <> v <> ";" <> s) "" m)
 
@@ -125,7 +128,7 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect g
       --
       -- note we cannot avoid starting from scratch when we subtract something from any of the filters
       let filters = joinDynThroughMap $ _gridHead_columnFilters ghead
-      sortState <- toSortState . switchPromptlyDyn =<< mapDyn (leftmost . Map.elems) (_gridHead_columnSorts ghead)
+      sortState <- toSortState $ (switch . current) $ fmap (leftmost . Map.elems) (_gridHead_columnSorts ghead)
       gridState <- combineDyn3 ((,,,) cols) rows filters sortState
       xs <- gridManager $ updated gridState
 
@@ -136,16 +139,14 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect g
 
       GridWindow _ _ window rowgroupAttrs <- gridWindowManager rowHeight extra tbodyHeight scrollTop xs
 
-      cs <- mapDyn (Map.filter (== True)) (joinDynThroughMap $ constDyn $ _gridMenu_columnVisibility gmenu)
-        >>= mapDyn (Map.intersectionWith (\c _ -> c) cols)
+      let cs = fmap (Map.intersectionWith (\c _ -> c) cols) $ fmap (Map.filter (== True)) (joinDynThroughMap $ constDyn $ _gridMenu_columnVisibility gmenu)
 
-      selected <- mapDyn (leftmost . Map.elems) sel
-        >>= foldDyn rowSelect mempty . switchPromptlyDyn
+      selected <- foldDyn rowSelect mempty $ (switch . current) $ fmap (leftmost . Map.elems) sel
 
   return $ Grid cols cs rows xs selected
 
   where
-    elHeight = getOffsetHeight . _el_element
+    elHeight = getOffsetHeight . _element_raw
 
     -- whenever we switch to another column SortOrder is reset to SortAsc
     toSortState :: Event t k -> m (Dynamic t (GridOrdering k))

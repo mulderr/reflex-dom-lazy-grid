@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -6,7 +7,7 @@
 module Reflex.Dom.LazyGrid.Types where
 
 import           Control.Lens ((^.), makeLenses)
-import           Control.Monad (forM, forM_, liftM2)
+import           Control.Monad (forM, forM_, join)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Bool (bool)
 import           Data.Default
@@ -14,6 +15,8 @@ import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Maybe (isJust)
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           Reflex
 import           Reflex.Dom
 import           Text.CSV (printCSV)
@@ -22,24 +25,24 @@ import           Reflex.Dom.LazyGrid.DomUtils
 
 type Columns k v = Map k (Column k v)
 type Rows k v = Map (k, k) v
-type Filters k = Map k String
+type Filters k = Map k Text
 
 -- | Grid column.
 data Column k v = Column
-  { _colName :: String -- ^ column name
-  , _colHeader :: String -- ^ column header
-  , _colValue :: (k, k) -> v -> String -- ^ column string value for display, can use row key and value
+  { _colName :: Text -- ^ column name
+  , _colHeader :: Text -- ^ column header
+  , _colValue :: (k, k) -> v -> Text -- ^ column string value for display, can use row key and value
   , _colCompare :: Maybe (v -> v -> Ordering) -- ^ ordering function
-  , _colFilter :: Maybe (String -> Rows k v -> Rows k v) -- ^ filtering function
+  , _colFilter :: Maybe (Text -> Rows k v -> Rows k v) -- ^ filtering function
   , _colVisible :: Bool -- ^ initial visibility
-  , _colAttrs :: Map String String -- ^ attrs applied to <th> and available for use in row action
+  , _colAttrs :: Map Text Text -- ^ attrs applied to <th> and available for use in row action
   }
 
 instance Eq (Column k v) where
   x == y = _colName x == _colName y
 
 instance Show (Column k v) where
-  show = _colName
+  show = T.unpack . _colName
 
 instance Default (Column k v) where
   def = Column { _colName = ""
@@ -72,9 +75,9 @@ instance Default k => Default (GridOrdering k) where
   def = GridOrdering def def
 
 data GridConfig t m k v
-   = GridConfig { _gridConfig_attributes :: Dynamic t (Map String String) -- ^ resizeDetector <div> attributes
-                , _gridConfig_tableTag :: String -- ^ table tag eg. <table>
-                , _gridConfig_tableAttributes :: Dynamic t (Map String String) -- ^ table tag attrs
+   = GridConfig { _gridConfig_attributes :: Dynamic t (Map Text Text) -- ^ resizeDetector <div> attributes
+                , _gridConfig_tableTag :: Text -- ^ table tag eg. <table>
+                , _gridConfig_tableAttributes :: Dynamic t (Map Text Text) -- ^ table tag attrs
                 , _gridConfig_rowHeight :: Int -- ^ row height in px
                 , _gridConfig_extraRows :: Int -- ^ extra rows rendered on top and bottom
                 , _gridConfig_columns :: Columns k v
@@ -129,7 +132,7 @@ data GridHeadConfig t k v
                     }
 
 data GridHead t k
-   = GridHead { _gridHead_columnFilters :: Dynamic t (Map k (Dynamic t String))
+   = GridHead { _gridHead_columnFilters :: Dynamic t (Map k (Dynamic t Text))
               , _gridHead_columnSorts :: Dynamic t (Map k (Event t k))
               }
 
@@ -138,7 +141,7 @@ data GridBodyConfig t m k v
                     , _gridBodyConfig_rows :: Dynamic t (Rows k v)
                     , _gridBodyConfig_window :: Dynamic t (Rows k v)
                     , _gridBodyConfig_selectedRows :: Dynamic t (Rows k v)
-                    , _gridBodyConfig_containerAttrs :: Dynamic t (Map String String)
+                    , _gridBodyConfig_containerAttrs :: Dynamic t (Map Text Text)
                     , _gridBodyConfig_rowAction :: (Columns k v -> (k, k) -> v -> Dynamic t Bool -> m (El t))
                     }
 
@@ -151,7 +154,7 @@ data GridWindow t k v
    = GridWindow { _gridWindow_firstIndex :: Dynamic t Int
                 , _gridWindow_windowSize :: Dynamic t Int
                 , _gridWindow_window :: Dynamic t (Rows k v)
-                , _gridWindow_attributes :: Dynamic t (Map String String)
+                , _gridWindow_attributes :: Dynamic t (Map Text Text)
                 }
 
 -- | No row selection.
@@ -174,7 +177,7 @@ mkGridMenu :: (MonadWidget t m, Ord k) => GridMenuConfig t k v -> m (GridMenu t 
 mkGridMenu (GridMenuConfig cols rows filtered selected) = el "div" $ do
   (menuToggle, _) <- elAttr' "div" ("class" =: "grid-menu-toggle") blank
   menuOpen <- toggle False $ domEvent Click menuToggle
-  menuAttrs <- forDyn menuOpen $ \o -> "class" =: ("grid-menu" <> bool "" " grid-menu-open" o)
+  let menuAttrs = ffor menuOpen $ \o -> "class" =: ("grid-menu" <> bool "" " grid-menu-open" o)
   gm <- elDynAttr "div" menuAttrs $ elClass "ul" "grid-menu-list" $ do
     (exportEl, _) <- el' "li" $ text "Export all data as csv"
     (exportVisibleEl, _) <- el' "li" $ text "Export visible data as csv"
@@ -182,7 +185,7 @@ mkGridMenu (GridMenuConfig cols rows filtered selected) = el "div" $ do
     toggles <- flip Map.traverseWithKey cols $ \k c -> el "div" $ do
         rec (toggleEl, _) <- elDynAttr' "li" attrs $ text $ _colHeader c
             dt <- toggle (_colVisible c) (domEvent Click toggleEl)
-            attrs <- forDyn dt $ \v -> "class" =: ("grid-menu-col " <> bool "grid-menu-col-hidden" "grid-menu-col-visible" v)
+            let attrs = ffor dt $ \v -> "class" =: ("grid-menu-col " <> bool "grid-menu-col-hidden" "grid-menu-col-visible" v)
         return dt
     return $ GridMenu
       (domEvent Click exportEl)
@@ -196,14 +199,15 @@ mkGridMenu (GridMenuConfig cols rows filtered selected) = el "div" $ do
 
 toCsv :: Columns k v -> Rows k v -> String
 toCsv cols rows = printCSV $ toFields <$> Map.toList rows
-  where toFields (k, x) = fmap (\c -> _colValue c k x) cs
+  where toFields (k, x) = fmap (\c -> T.unpack $ _colValue c k x) cs
         cs = Map.elems cols
 
 exportCsv :: MonadWidget t m => Columns k v -> Event t (Rows k v) -> m ()
 exportCsv cols e = do
-  doc <- askDocument
+  -- doc <- askDocument
 #ifdef ghcjs_HOST_OS
-  performEvent_ $ (liftIO . triggerDownload doc "text/csv" "export.csv" . toCsv cols) <$> e
+  -- performEvent_ $ (liftIO . triggerDownload doc "text/csv" "export.csv" . toCsv cols) <$> e
+  return ()
 #else
   performEvent_ $ (liftIO $ print "export only implemented for GHCJS") <$ e
 #endif
@@ -212,26 +216,24 @@ exportCsv cols e = do
 mkGridHead :: (MonadWidget t m, Ord k) => GridHeadConfig t k v -> m (GridHead t k)
 mkGridHead (GridHeadConfig visCols ordering) = el "thead" $ el "tr" $ do
   controls <- listWithKey visCols $ \k dc -> do
-    thAttrs <- mapDyn _colAttrs dc
+    let thAttrs = fmap _colAttrs dc
     elDynAttr "th" thAttrs $ do
 
       -- header and sort controls
-      attrs <- forDyn dc $ \c -> "class" =: maybe "grid-col-title" (const "grid-col-title grid-col-title-sort") (_colCompare c)
-      sortAttrs <- mapDyn (toSortIndicatorAttrs k) ordering
+      let attrs = ffor dc $ \c -> "class" =: maybe "grid-col-title" (const "grid-col-title grid-col-title-sort") (_colCompare c)
+          sortAttrs = fmap (toSortIndicatorAttrs k) ordering
       (sortBtn, _) <- elDynAttr' "div" attrs $ do
-        dynText =<< mapDyn _colHeader dc
+        dynText $ fmap _colHeader dc
         elDynAttr "span" sortAttrs $ return ()
-      sortEvent <- forDyn dc $ \c -> maybe never (const $ tag (constant k) $ domEvent Click sortBtn) $ _colCompare c
-
-      -- filter
-      fattrs <- forDyn dc $ \c -> "class" =: "grid-col-filter" <> "style" =: maybe "display: none;" (const "display: block;") (_colFilter c)
+      let sortEvent = ffor dc $ \c -> maybe never (const $ tag (constant k) $ domEvent Click sortBtn) $ _colCompare c
+          fattrs = ffor dc $ \c -> "class" =: "grid-col-filter" <> "style" =: maybe "display: none;" (const "display: block;") (_colFilter c)
       finput <- textInputClearable "grid-col-filter-clear-btn" $ def & attributes .~ fattrs
 
       return (_textInput_value finput, switchPromptlyDyn sortEvent)
-  liftM2 GridHead (mapDyn (fmap fst) controls) (mapDyn (fmap snd) controls)
+  return $ GridHead (fmap (fmap fst) controls) (fmap (fmap snd) controls)
   where
     -- given column key k and GridOrdering k return sort indicator attrs for that column
-    toSortIndicatorAttrs :: (Eq k) => k -> GridOrdering k -> Map String String
+    toSortIndicatorAttrs :: (Eq k) => k -> GridOrdering k -> Map Text Text
     toSortIndicatorAttrs k (GridOrdering ck v) = "class" =: ("grid-col-sort-icon" <> if ck == k
       then case v of
              SortNone -> ""
@@ -248,16 +250,16 @@ mkGridBody (GridBodyConfig cols rows window selected attrs rowAction) = do
       cs <- sample $ current cols
       listWithKey window $ \k dv -> do
         v <- sample $ current dv
-        r <- rowAction cs k v =<< mapDyn (Map.member k) selected
+        r <- rowAction cs k v $ fmap (Map.member k) selected
         return $ (k, v) <$ domEvent Click r
       ) <$ leftmost [() <$ updated cols, () <$ updated rows]
-    return $ joinDyn sel
+    return $ join sel
   return $ GridBody tbody sel
 
 -- | Default row action.
 mkGridRow :: (MonadWidget t m) => Columns k v -> (k, k) -> v -> Dynamic t Bool -> m (El t)
 mkGridRow cs k v dsel = do
-  attrs <- forDyn dsel $ bool mempty ("class" =: "grid-row-selected")
+  let attrs = ffor dsel $ bool mempty ("class" =: "grid-row-selected")
   (el, _) <- elDynAttr' "tr" attrs $ forM_ cs $ \c -> elAttr "td" (_colAttrs c) $ text ((_colValue c) k v)
   return el
 
@@ -272,5 +274,5 @@ makeLenses ''GridBodyConfig
 makeLenses ''GridBody
 
 instance HasAttributes (GridConfig t m k v) where
-  type Attrs (GridConfig t m k v) = Dynamic t (Map String String)
+  type Attrs (GridConfig t m k v) = Dynamic t (Map Text Text)
   attributes = gridConfig_attributes
