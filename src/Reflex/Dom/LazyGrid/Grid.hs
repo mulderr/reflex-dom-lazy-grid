@@ -73,7 +73,7 @@ gridWindowManager :: forall t m k v . (MonadWidget t m, Ord k)
 gridWindowManager rowHeight extra height scrollTop xs = do
   firstIndex <- (return . uniqDyn) =<< foldDyn toFirstIdx 0 (updated scrollTop)
   let windowSize = uniqDyn $ fmap toWindowSize height
-  window <- combineDyn3 toWindow firstIndex windowSize xs
+      window = combineDyn3 toWindow firstIndex windowSize xs
   let attrs = uniqDyn $ zipDynWith toWindowAttrs firstIndex $ fmap Map.size xs
   return $ GridWindow firstIndex windowSize window attrs
   where
@@ -129,7 +129,7 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect g
       -- note we cannot avoid starting from scratch when we subtract something from any of the filters
       let filters = joinDynThroughMap $ _gridHead_columnFilters ghead
       sortState <- toSortState $ (switch . current) $ fmap (leftmost . Map.elems) (_gridHead_columnSorts ghead)
-      gridState <- combineDyn3 ((,,,) cols) rows filters sortState
+      let gridState = combineDyn3 ((,,,) cols) rows filters sortState
       xs <- gridManager $ updated gridState
 
       initHeightE <- performEvent $ elHeight tbody <$ pb
