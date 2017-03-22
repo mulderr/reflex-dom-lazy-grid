@@ -35,6 +35,7 @@ import           GHCJS.DOM.Types (HTMLDocument)
 import           Reflex
 import           Reflex.Dom
 
+{-# INLINABLE tshow #-}
 tshow :: Show a => a -> Text
 tshow = T.pack . show
 
@@ -71,16 +72,19 @@ triggerDownload doc mime filename s = return ()
 
 -- | Text input with a button to clear the value.
 -- The button content ie. icon or text is to be defined through CSS using btnClass.
+{-# INLINABLE textInputClearable #-}
 textInputClearable :: MonadWidget t m => Text -> TextInputConfig t -> m (TextInput t)
 textInputClearable btnClass tic =
   elAttr "div" ("style" =: "position: relative;") $ do
     rec (e, _) <- elDynAttr' "span" attrs $ return ()
         let clearE = domEvent Click e
-        ti <- textInput $ tic & setValue .~ fmap (\_ -> "") clearE
-        attrs <- holdDyn emptyAttrs $ leftmost [ fmap (\_ -> emptyAttrs) clearE, fmap f $ ti ^. textInput_input]
+        ti <- textInput $ tic & setValue .~ ("" <$ clearE)
+        attrs <- holdDyn emptyAttrs $ leftmost [ emptyAttrs <$ clearE
+                                               , fmap f $ ti ^. textInput_input
+                                               ]
     return ti
   where
-    emptyAttrs = ("style" =: "visibility: hidden;")
+    emptyAttrs = "style" =: "visibility: hidden;"
     f s = case s of
             "" -> emptyAttrs
             _  -> ("class" =: btnClass)
@@ -88,6 +92,7 @@ textInputClearable btnClass tic =
 -- more general version of resizeDetectorWithStyle
 -- need to specify class
 -- caller is responsible for somehow setting position: relative or position: absolute
+{-# INLINABLE resizeDetectorDynAttr #-}
 resizeDetectorDynAttr :: MonadWidget t m
   => Dynamic t (Map Text Text) -- ^ Element attributes. Warning: It must specifiy the "position" attribute with value either "absolute" or "relative".
   -> m a -- ^ The embedded widget

@@ -29,8 +29,7 @@ type Filters k = Map k Text
 
 -- | Grid column.
 data Column k v = Column
-  { _colName :: Text -- ^ column name
-  , _colHeader :: Text -- ^ column header
+  { _colHeader :: Text -- ^ column header
   , _colValue :: (k, k) -> v -> Text -- ^ column string value for display, can use row key and value
   , _colCompare :: Maybe (v -> v -> Ordering) -- ^ ordering function
   , _colFilter :: Maybe (Text -> Rows k v -> Rows k v) -- ^ filtering function
@@ -38,15 +37,8 @@ data Column k v = Column
   , _colAttrs :: Map Text Text -- ^ attrs applied to <th> and available for use in row action
   }
 
-instance Eq (Column k v) where
-  x == y = _colName x == _colName y
-
-instance Show (Column k v) where
-  show = T.unpack . _colName
-
 instance Default (Column k v) where
-  def = Column { _colName = ""
-               , _colHeader = ""
+  def = Column { _colHeader = ""
                , _colValue = (\_ _ -> "")
                , _colCompare = Nothing
                , _colFilter = Nothing
@@ -82,7 +74,8 @@ data GridConfig t m k v
                 , _gridConfig_extraRows :: Int -- ^ extra rows rendered on top and bottom
                 , _gridConfig_columns :: Columns k v
                 , _gridConfig_rows :: Dynamic t (Rows k v)
-                , _gridConfig_selectionStrategy :: (((k, k), v) -> Rows k v -> Rows k v)
+                , _gridConfig_selectionStrategy :: (Maybe ((k, k), v) -> Rows k v -> Rows k v)
+                , _gridConfig_selectionClear :: Event t ()
                 , _gridConfig_menuWidget :: (GridMenuConfig t k v -> m (GridMenu t k))
                 , _gridConfig_headWidget :: (GridHeadConfig t k v -> m (GridHead t k))
                 , _gridConfig_bodyWidget :: (GridBodyConfig t m k v -> m (GridBody t k v))
@@ -98,6 +91,7 @@ instance (MonadWidget t m, Ord k) => Default (GridConfig t m k v) where
                    , _gridConfig_columns = mempty
                    , _gridConfig_rows = constDyn mempty
                    , _gridConfig_selectionStrategy = selectNone
+                   , _gridConfig_selectionClear = never
                    , _gridConfig_menuWidget = mkGridMenu
                    , _gridConfig_headWidget = mkGridHead
                    , _gridConfig_bodyWidget = mkGridBody
@@ -158,21 +152,27 @@ data GridWindow t k v
                 }
 
 -- | No row selection.
-selectNone :: Ord k => ((k, k), v) -> Rows k v -> Rows k v
+{-# INLINABLE selectNone #-}
+selectNone :: Ord k => Maybe ((k, k), v) -> Rows k v -> Rows k v
 selectNone _ = id
 
 -- | Single row selection.
-selectSingle :: Ord k => ((k, k), v) -> Rows k v -> Rows k v
-selectSingle (k, v) sel = maybe (Map.singleton k v) (const mempty) $ Map.lookup k sel
+{-# INLINABLE selectSingle #-}
+selectSingle :: Ord k => Maybe ((k, k), v) -> Rows k v -> Rows k v
+selectSingle (Just (k, v)) sel = maybe (Map.singleton k v) (const mempty) $ Map.lookup k sel
+selectSingle Nothing _ = mempty
 
 -- | Multiple row selection.
-selectMultiple :: Ord k => ((k, k), v) -> Rows k v -> Rows k v
-selectMultiple (k, v) sel = maybe (Map.insert k v sel) (const $ Map.delete k sel) $ Map.lookup k sel
+{-# INLINABLE selectMultiple #-}
+selectMultiple :: Ord k => Maybe ((k, k), v) -> Rows k v -> Rows k v
+selectMultiple (Just (k, v)) sel = maybe (Map.insert k v sel) (const $ Map.delete k sel) $ Map.lookup k sel
+selectMultiple Nothing _ = mempty
 
 ------------------------------------------------------------------------------
 -- Templates
 
 -- | Default menu widget implementation.
+{-# INLINABLE mkGridMenu #-}
 mkGridMenu :: (MonadWidget t m, Ord k) => GridMenuConfig t k v -> m (GridMenu t k)
 mkGridMenu (GridMenuConfig cols rows filtered selected) = el "div" $ do
   (menuToggle, _) <- elAttr' "div" ("class" =: "grid-menu-toggle") blank
@@ -213,6 +213,7 @@ exportCsv cols e = do
 #endif
 
 -- | Default head widget implementation.
+{-# INLINABLE mkGridHead #-}
 mkGridHead :: (MonadWidget t m, Ord k) => GridHeadConfig t k v -> m (GridHead t k)
 mkGridHead (GridHeadConfig visCols ordering) = el "thead" $ el "tr" $ do
   controls <- listWithKey visCols $ \k dc -> do
@@ -242,6 +243,7 @@ mkGridHead (GridHeadConfig visCols ordering) = el "thead" $ el "tr" $ do
       else "")
 
 -- | Default body widget implementation.
+{-# INLINABLE mkGridBody #-}
 mkGridBody :: (MonadWidget t m, Ord k) => GridBodyConfig t m k v -> m (GridBody t k v)
 mkGridBody (GridBodyConfig cols rows window selected attrs rowAction) = do
   (tbody, sel) <- elAttr' "tbody" ("tabindex" =: "0") $ elDynAttr "x-rowgroup" attrs $ do
@@ -257,6 +259,7 @@ mkGridBody (GridBodyConfig cols rows window selected attrs rowAction) = do
   return $ GridBody tbody sel
 
 -- | Default row action.
+{-# INLINABLE mkGridRow #-}
 mkGridRow :: (MonadWidget t m) => Columns k v -> (k, k) -> v -> Dynamic t Bool -> m (El t)
 mkGridRow cs k v dsel = do
   let attrs = ffor dsel $ bool mempty ("class" =: "grid-row-selected")

@@ -27,18 +27,19 @@ import           Reflex.Dom
 
 import           Reflex.Dom.LazyGrid.DomUtils (resizeDetectorDynAttr, tshow)
 import           Reflex.Dom.LazyGrid.Types
-import           Reflex.Dom.LazyGrid.Utils
 
 
 -- | Handles model changes in response to filtering and sorting.
-gridManager :: (MonadWidget t m, Ord k, Enum k)
-  => Event t (Columns k v, Rows k v, Filters k, GridOrdering k)
-  -> m (Dynamic t (Rows k v))
-gridManager = holdDyn mempty . fmap f
+{-# INLINABLE gridManager #-}
+gridManager :: (Reflex t, Ord k, Enum k)
+  => Dynamic t (Columns k v, Rows k v, Filters k, GridOrdering k)
+  -> Dynamic t (Rows k v)
+gridManager = fmap f
   where
     f (cols, rows, fs, order) = gridSort cols order $ gridFilter cols fs rows
 
 -- | Apply filters to a set of rows.
+{-# INLINABLE gridFilter #-}
 gridFilter :: Ord k => Columns k v -> Filters k -> Rows k v -> Rows k v
 gridFilter cols fs xs = Map.foldrWithKey (applyOne cols) xs fs
   where
@@ -50,6 +51,7 @@ gridFilter cols fs xs = Map.foldrWithKey (applyOne cols) xs fs
                                          Nothing -> xs
 
 -- | Apply column sorting to a set of rows.
+{-# INLINABLE gridSort #-}
 gridSort :: (Ord k, Enum k) => Columns k v -> GridOrdering k -> Rows k v -> Rows k v
 gridSort cols (GridOrdering k sortOrder) = Map.fromList . sort . Map.toList
   where
@@ -63,6 +65,7 @@ gridSort cols (GridOrdering k sortOrder) = Map.fromList . sort . Map.toList
     reindex = zipWith (\n ((_, k2), v) -> ((n, k2), v)) [(toEnum 1)..]
 
 -- | Keeps the window updated based on scroll position and body height.
+{-# INLINABLE gridWindowManager #-}
 gridWindowManager :: forall t m k v . (MonadWidget t m, Ord k)
                   => Int -- ^ row height in px
                   -> Int -- ^ extra row count
@@ -73,9 +76,10 @@ gridWindowManager :: forall t m k v . (MonadWidget t m, Ord k)
 gridWindowManager rowHeight extra height scrollTop xs = do
   firstIndex <- (return . uniqDyn) =<< foldDyn toFirstIdx 0 (updated scrollTop)
   let windowSize = uniqDyn $ fmap toWindowSize height
-      window = combineDyn3 toWindow firstIndex windowSize xs
-  let attrs = uniqDyn $ zipDynWith toWindowAttrs firstIndex $ fmap Map.size xs
+      window = toWindow <$> firstIndex <*> windowSize <*> xs
+      attrs = uniqDyn $ zipDynWith toWindowAttrs firstIndex $ fmap Map.size xs
   return $ GridWindow firstIndex windowSize window attrs
+
   where
     -- first index parity must be stable not to have the zebra "flip" when using css :nth-child
     toFirstIdx :: Int -> Int -> Int
@@ -111,8 +115,9 @@ gridWindowManager rowHeight extra height scrollTop xs = do
         toStyleAttr m = "style" =: (Map.foldrWithKey (\k v s -> k <> ":" <> v <> ";" <> s) "" m)
 
 -- | Grid view.
+{-# INLINABLE grid #-}
 grid :: forall t m k v . (MonadWidget t m, Ord k, Enum k, Default k) => GridConfig t m k v -> m (Grid t k v)
-grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect gridMenu gridHead gridBody rowAction) = do
+grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect clearSelE gridMenu gridHead gridBody rowAction) = do
   pb <- getPostBuild
   rec (gridResizeEvent, (table, gmenu, ghead, (GridBody tbody sel))) <- resizeDetectorDynAttr attrs $ do
         gmenu <- gridMenu $ GridMenuConfig cols rows xs selected
@@ -122,15 +127,10 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect g
           return (ghead, gbody)
         return (table, gmenu, ghead, gbody)
 
-      -- TODO:
-      -- if the old set of filteres is completely contained within the new we can keep existing work and
-      -- only search within current xs
-      --
-      -- note we cannot avoid starting from scratch when we subtract something from any of the filters
-      let filters = joinDynThroughMap $ _gridHead_columnFilters ghead
       sortState <- toSortState $ (switch . current) $ fmap (leftmost . Map.elems) (_gridHead_columnSorts ghead)
-      let gridState = combineDyn3 ((,,,) cols) rows filters sortState
-      xs <- gridManager $ updated gridState
+      let filters = joinDynThroughMap $ _gridHead_columnFilters ghead
+          gridState = (,,,) cols <$> rows <*> filters <*> sortState
+          xs = gridManager gridState
 
       initHeightE <- performEvent $ elHeight tbody <$ pb
       resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
@@ -139,9 +139,15 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect g
 
       GridWindow _ _ window rowgroupAttrs <- gridWindowManager rowHeight extra tbodyHeight scrollTop xs
 
-      let cs = fmap (Map.intersectionWith (\c _ -> c) cols) $ fmap (Map.filter (== True)) (joinDynThroughMap $ constDyn $ _gridMenu_columnVisibility gmenu)
+      let cs = fmap (Map.intersectionWith (\c _ -> c) cols) $ fmap (Map.filter (== True))
+                 $ joinDynThroughMap $ constDyn $ _gridMenu_columnVisibility gmenu
+          selE :: Event t ((k,k), v) = switch . current $ fmap (leftmost . Map.elems) sel
 
-      selected <- foldDyn rowSelect mempty $ (switch . current) $ fmap (leftmost . Map.elems) sel
+      -- A Nothing event clears the selection
+      selected <- foldDyn rowSelect mempty $ leftmost [ Just <$> selE
+                                                      , Nothing <$ clearSelE
+                                                      , Nothing <$ updated rows
+                                                      ]
 
   return $ Grid cols cs rows xs selected
 
