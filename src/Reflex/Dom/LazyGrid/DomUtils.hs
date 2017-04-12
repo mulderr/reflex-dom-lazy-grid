@@ -26,7 +26,7 @@ import           GHCJS.Marshal
 import           GHCJS.DOM.Blob
 import qualified GHCJS.DOM.Document as D
 import qualified GHCJS.DOM.HTMLElement as HE
-import           GHCJS.DOM.Types (BlobPropertyBag (..), HTMLDocument, castToHTMLAnchorElement)
+import           GHCJS.DOM.Types (BlobPropertyBag (..), HTMLDocument)
 import           GHCJS.DOM.URL
 #else
 import           GHCJS.DOM.Types (HTMLDocument)
@@ -58,7 +58,7 @@ triggerDownload doc mime filename s = do
   setAttribute a ("style" :: String) ("display: none;" :: String)
   setAttribute a ("download" :: String) filename
   setAttribute a ("href" :: String) url
-  HE.click $ castToHTMLAnchorElement a
+  HE.click $ HE.HTMLElement $ unElement a
   revokeObjectURL windowUrl url
 
 -- for triggerDownload
