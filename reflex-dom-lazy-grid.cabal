@@ -1,5 +1,5 @@
 name:                reflex-dom-lazy-grid
-version:             0.1.2.0
+version:             0.1.2.1
 synopsis:            Lazy grid for Reflex
 description:         Grid with virtual scroll, sorting, filtering, column selection and csv export.
 homepage:            http://github.com/mulderr/reflex-dom-lazy-grid
@@ -27,7 +27,7 @@ library
                      , containers   >= 0.5
                      , csv          >= 0.1
                      , data-default >= 0.5
-                     , ghcjs-dom    >= 0.2.3.1
+                     , ghcjs-dom    >= 0.8
                      , lens         >= 4
                      , reflex       >= 0.5
                      , reflex-dom   >= 0.4

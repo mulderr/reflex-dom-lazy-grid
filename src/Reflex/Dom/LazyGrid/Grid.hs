@@ -135,7 +135,7 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
       initHeightE <- performEvent $ elHeight tbody <$ pb
       resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
       tbodyHeight <- holdDyn 0 $ ceiling <$> leftmost [resizeE, initHeightE]
-      scrollTop <- holdDyn 0 $ domEvent Scroll tbody
+      scrollTop <- holdDyn 0 $ fmap ceiling $ domEvent Scroll tbody
 
       GridWindow _ _ window rowgroupAttrs <- gridWindowManager rowHeight extra tbodyHeight scrollTop xs
 

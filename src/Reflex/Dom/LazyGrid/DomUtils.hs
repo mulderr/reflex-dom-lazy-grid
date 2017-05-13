@@ -25,11 +25,12 @@ import           GHCJS.Foreign
 import           GHCJS.Marshal
 import           GHCJS.DOM.Blob
 import qualified GHCJS.DOM.Document as D
+import qualified GHCJS.DOM.GlobalEventHandlers as Events
 import qualified GHCJS.DOM.HTMLElement as HE
-import           GHCJS.DOM.Types (BlobPropertyBag (..), HTMLDocument)
+import qualified GHCJS.DOM.Types as DOM
 import           GHCJS.DOM.URL
 #else
-import           GHCJS.DOM.Types (HTMLDocument)
+import qualified GHCJS.DOM.Types as DOM
 #endif
 
 import           Reflex
@@ -42,7 +43,7 @@ tshow = T.pack . show
 -- an HTML5 way of locally triggering a file download with arbitrary content
 -- only tested on recent versions of Chrome and Firefox
 triggerDownload
-  :: HTMLDocument
+  :: DOM.HTMLDocument
   -> String -- ^ mime type
   -> String -- ^ file name
   -> String -- ^ content
@@ -50,11 +51,9 @@ triggerDownload
 #ifdef ghcjs_HOST_OS
 triggerDownload doc mime filename s = do
   windowUrl <- js_windowURL
-  v <- toJSVal s
-  -- p <- toJSVal $ AE.Object $ HM.singleton (T.pack "type") (AE.String $ T.pack mime)
-  blob <- newBlob' [v] (Nothing :: Maybe BlobPropertyBag) -- $ Just $ BlobPropertyBag p
-  Just (url :: String) <- createObjectURL windowUrl (Just blob)
-  Just a <- D.createElement doc (Just "a" :: Maybe String)
+  blob <- newBlob [s] (Nothing :: Maybe DOM.BlobPropertyBag)
+  (url :: String) <- createObjectURL windowUrl blob
+  a <- D.createElement doc ("a" :: String)
   setAttribute a ("style" :: String) ("display: none;" :: String)
   setAttribute a ("download" :: String) filename
   setAttribute a ("href" :: String) url
@@ -132,8 +131,8 @@ resizeDetectorDynAttr attrs w = do
            then return Nothing
            else liftM Just reset
   pb <- getPostBuild
-  expandScroll <- wrapDomEvent (_element_raw expand) (`on` scroll) $ return ()
-  shrinkScroll <- wrapDomEvent (_element_raw shrink) (`on` scroll) $ return ()
+  expandScroll <- wrapDomEvent (DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw expand) (`on` Events.scroll) $ return ()
+  shrinkScroll <- wrapDomEvent (DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw shrink) (`on` Events.scroll) $ return ()
   size0 <- performEvent $ fmap (const $ liftIO reset) pb
   rec resize <- performEventAsync $ fmap (\d cb -> liftIO $ cb =<< resetIfChanged d) $ tag (current dimensions) $ leftmost [expandScroll, shrinkScroll]
       dimensions <- holdDyn (Nothing, Nothing) $ leftmost [ size0, fmapMaybe id resize ]
