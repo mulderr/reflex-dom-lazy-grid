@@ -131,15 +131,15 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
           gridState = (,,,) cols <$> rows <*> filters <*> sortState
           xs = gridManager gridState
 
-      initE <- delay 0 =<< getPostBuild
+      initE <- delay 0.2 =<< getPostBuild
       initHeightE <- performEvent $ elHeight tbody <$ initE
       resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
       tbodyHeight <- fmap uniqDyn $ holdDyn 0 $ ceiling <$> leftmost [resizeE, initHeightE]
       scrollTop <- holdDyn 0 $ fmap floor $ domEvent Scroll tbody
-      performEvent_ $ ffor gridResizeEvent $ \x -> liftIO $ putStrLn $ "gridResize: " ++ show x
+
+      -- debugging
       performEvent_ $ ffor initHeightE $ \x -> liftIO $ putStrLn $ "init: " ++ show x
       performEvent_ $ ffor resizeE $ \x -> liftIO $ putStrLn $ "resize: " ++ show x
-      -- performEvent_ $ ffor (updated tbodyHeight) $ \x -> liftIO $ putStrLn $ show x
 
       GridWindow _ _ window rowgroupAttrs <- gridWindowManager rowHeight extra tbodyHeight scrollTop xs
 
