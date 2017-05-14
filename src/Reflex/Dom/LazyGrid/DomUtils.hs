@@ -1,14 +1,20 @@
-{-# LANGUAGE OverloadedStrings, RecursiveDo, ScopedTypeVariables, CPP #-}
+{-# LANGUAGE GADTs
+  , FlexibleContexts
+  , OverloadedStrings
+  , RecursiveDo
+  , ScopedTypeVariables
+  , CPP #-}
 
 module Reflex.Dom.LazyGrid.DomUtils
-  ( resizeDetectorDynAttr
+  ( resizeDetectorWithAttrs'
   , textInputClearable
   , triggerDownload
   , tshow
   ) where
 
 import           Control.Lens ((^.))
-import           Control.Monad (liftM)
+import           Control.Monad (liftM, void)
+import           Control.Monad.Fix
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Aeson as AE
 import qualified Data.HashMap.Strict as HM
@@ -28,9 +34,11 @@ import qualified GHCJS.DOM.Document as D
 import qualified GHCJS.DOM.GlobalEventHandlers as Events
 import qualified GHCJS.DOM.HTMLElement as HE
 import qualified GHCJS.DOM.Types as DOM
+import           GHCJS.DOM.Types (MonadJSM, liftJSM)
 import           GHCJS.DOM.URL
 #else
 import qualified GHCJS.DOM.Types as DOM
+import           GHCJS.DOM.Types (MonadJSM, liftJSM)
 #endif
 
 import           Reflex
@@ -88,22 +96,21 @@ textInputClearable btnClass tic =
             "" -> emptyAttrs
             _  -> ("class" =: btnClass)
 
--- more general version of resizeDetectorWithStyle
--- need to specify class
--- caller is responsible for somehow setting position: relative or position: absolute
-{-# INLINABLE resizeDetectorDynAttr #-}
-resizeDetectorDynAttr :: MonadWidget t m
-  => Dynamic t (Map Text Text) -- ^ Element attributes. Warning: It must specifiy the "position" attribute with value either "absolute" or "relative".
+-- Does not hardcode position: relative on the outer div. We need position: absolute.
+-- Otherwise same as `resizeDetectorWithAttrs`.
+{-# INLINABLE resizeDetectorWithAttrs' #-}
+resizeDetectorWithAttrs' :: (MonadJSM m, DomBuilder t m, PostBuild t m, TriggerEvent t m, PerformEvent t m, MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadJSM (Performable m), MonadFix m)
+  => Map Text Text -- ^ A map of attributes. Warning: It should not modify the "position" style attribute.
   -> m a -- ^ The embedded widget
   -> m (Event t (), a) -- ^ An 'Event' that fires on resize, and the result of the embedded widget
-resizeDetectorDynAttr attrs w = do
-  let childStyle = "position: absolute; left: 0; top: 0;" :: String
+resizeDetectorWithAttrs' attrs w = do
+  let childStyle = "position: absolute; left: 0; top: 0;"
       containerAttrs = "style" =: "position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: scroll; z-index: -1; visibility: hidden;"
-  (parent, (expand, expandChild, shrink, w')) <- elDynAttr' "div" attrs $ do
+  (parent, (expand, expandChild, shrink, w')) <- elAttr' "div" attrs $ do
     w' <- w
     elAttr "div" containerAttrs $ do
-      (expand, (expandChild, _)) <- elAttr' "div" containerAttrs $ elAttr' "div" ("style" =: T.pack childStyle) $ return ()
-      (shrink, _) <- elAttr' "div" containerAttrs $ elAttr "div" ("style" =: (T.pack childStyle <> "width: 200%; height: 200%;")) $ return ()
+      (expand, (expandChild, _)) <- elAttr' "div" containerAttrs $ elAttr' "div" ("style" =: childStyle) $ return ()
+      (shrink, _) <- elAttr' "div" containerAttrs $ elAttr "div" ("style" =: (childStyle <> "width: 200%; height: 200%;")) $ return ()
       return (expand, expandChild, shrink, w')
   let reset = do
         let e = _element_raw expand
@@ -112,7 +119,7 @@ resizeDetectorDynAttr attrs w = do
         eoh <- getOffsetHeight e
         let ecw = eow + 10
             ech = eoh + 10
-        setAttribute (_element_raw expandChild) ("style" :: String) (childStyle <> "width: " <> show ecw <> "px;" <> "height: " <> show ech <> "px;")
+        setAttribute (_element_raw expandChild) ("style" :: Text) (childStyle <> "width: " <> T.pack (show ecw) <> "px;" <> "height: " <> T.pack (show ech) <> "px;")
         esw <- getScrollWidth e
         setScrollLeft e esw
         esh <- getScrollHeight e
@@ -128,12 +135,12 @@ resizeDetectorDynAttr attrs w = do
         pow <- getOffsetWidth (_element_raw parent)
         poh <- getOffsetHeight (_element_raw parent)
         if ds == (Just pow, Just poh)
-           then return Nothing
-           else liftM Just reset
-  pb <- getPostBuild
+          then return Nothing
+          else fmap Just reset
+  pb <- delay 0 =<< getPostBuild
   expandScroll <- wrapDomEvent (DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw expand) (`on` Events.scroll) $ return ()
   shrinkScroll <- wrapDomEvent (DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw shrink) (`on` Events.scroll) $ return ()
-  size0 <- performEvent $ fmap (const $ liftIO reset) pb
-  rec resize <- performEventAsync $ fmap (\d cb -> liftIO $ cb =<< resetIfChanged d) $ tag (current dimensions) $ leftmost [expandScroll, shrinkScroll]
+  size0 <- performEvent $ fmap (const $ liftJSM reset) pb
+  rec resize <- performEventAsync $ fmap (\d cb -> (liftIO . cb) =<< liftJSM (resetIfChanged d)) $ tag (current dimensions) $ leftmost [expandScroll, shrinkScroll]
       dimensions <- holdDyn (Nothing, Nothing) $ leftmost [ size0, fmapMaybe id resize ]
-  return (fmap (const ()) $ fmapMaybe id resize, w')
+  return (fmapMaybe void resize, w')

@@ -67,7 +67,7 @@ instance Default k => Default (GridOrdering k) where
   def = GridOrdering def def
 
 data GridConfig t m k v
-   = GridConfig { _gridConfig_attributes :: Dynamic t (Map Text Text) -- ^ resizeDetector <div> attributes
+   = GridConfig { _gridConfig_attributes :: Map Text Text -- ^ resizeDetector <div> attributes
                 , _gridConfig_tableTag :: Text -- ^ table tag eg. <table>
                 , _gridConfig_tableAttributes :: Dynamic t (Map Text Text) -- ^ table tag attrs
                 , _gridConfig_rowHeight :: Int -- ^ row height in px
@@ -83,7 +83,7 @@ data GridConfig t m k v
                 }
 
 instance (MonadWidget t m, Ord k) => Default (GridConfig t m k v) where
-  def = GridConfig { _gridConfig_attributes = constDyn ("class" =: "grid-container")
+  def = GridConfig { _gridConfig_attributes = "class" =: "grid-container"
                    , _gridConfig_tableTag = "table"
                    , _gridConfig_tableAttributes = constDyn ("class" =: "grid-table")
                    , _gridConfig_rowHeight = 30
@@ -277,5 +277,5 @@ makeLenses ''GridBodyConfig
 makeLenses ''GridBody
 
 instance HasAttributes (GridConfig t m k v) where
-  type Attrs (GridConfig t m k v) = Dynamic t (Map Text Text)
+  type Attrs (GridConfig t m k v) = Map Text Text
   attributes = gridConfig_attributes
