@@ -25,20 +25,17 @@ import qualified Data.Text as T
 
 import           GHCJS.DOM.Element hiding (drop)
 import           GHCJS.DOM.EventM (on)
+import qualified GHCJS.DOM.GlobalEventHandlers as Events
+import           GHCJS.DOM.Types (MonadJSM, liftJSM)
+import qualified GHCJS.DOM.Types as DOM
 
 #ifdef ghcjs_HOST_OS
 import           GHCJS.Foreign
 import           GHCJS.Marshal
 import           GHCJS.DOM.Blob
 import qualified GHCJS.DOM.Document as D
-import qualified GHCJS.DOM.GlobalEventHandlers as Events
 import qualified GHCJS.DOM.HTMLElement as HE
-import qualified GHCJS.DOM.Types as DOM
-import           GHCJS.DOM.Types (MonadJSM, liftJSM)
 import           GHCJS.DOM.URL
-#else
-import qualified GHCJS.DOM.Types as DOM
-import           GHCJS.DOM.Types (MonadJSM, liftJSM)
 #endif
 
 import           Reflex
