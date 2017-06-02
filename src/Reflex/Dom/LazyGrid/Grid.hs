@@ -21,7 +21,8 @@ import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
-import           GHCJS.DOM.Element (getOffsetHeight)
+import           GHCJS.DOM.HTMLElement (getOffsetHeight)
+import qualified GHCJS.DOM.Types as DOM
 import           Reflex
 import           Reflex.Dom
 
@@ -74,10 +75,10 @@ gridWindowManager :: forall t m k v . (MonadWidget t m, Ord k)
                   -> Dynamic t (Rows k v)
                   -> m (GridWindow t k v)
 gridWindowManager rowHeight extra height scrollTop xs = do
-  firstIndex <- (return . uniqDyn) =<< foldDyn toFirstIdx 0 (updated scrollTop)
-  let windowSize = uniqDyn $ fmap toWindowSize height
-      window = toWindow <$> firstIndex <*> windowSize <*> xs
-      attrs = uniqDyn $ zipDynWith toWindowAttrs firstIndex $ fmap Map.size xs
+  firstIndex <- holdUniqDyn =<< foldDyn toFirstIdx 0 (updated scrollTop)
+  windowSize <- holdUniqDyn $ fmap toWindowSize height
+  attrs <- holdUniqDyn $ zipDynWith toWindowAttrs firstIndex $ fmap Map.size xs
+  let window = toWindow <$> firstIndex <*> windowSize <*> xs
   return $ GridWindow firstIndex windowSize window attrs
 
   where
@@ -134,7 +135,7 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
       initE <- delay 0.2 =<< getPostBuild
       initHeightE <- performEvent $ elHeight tbody <$ initE
       resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
-      tbodyHeight <- fmap uniqDyn $ holdDyn 0 $ ceiling <$> leftmost [resizeE, initHeightE]
+      tbodyHeight <- holdUniqDyn =<< holdDyn 0 (fmap ceiling $ leftmost [resizeE, initHeightE])
       scrollTop <- holdDyn 0 $ fmap floor $ domEvent Scroll tbody
 
       -- debugging
@@ -156,7 +157,7 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
   return $ Grid cols cs rows xs selected
 
   where
-    elHeight = getOffsetHeight . _element_raw
+    elHeight = getOffsetHeight . DOM.uncheckedCastTo DOM.HTMLElement . _element_raw
 
     -- whenever we switch to another column SortOrder is reset to SortAsc
     toSortState :: Event t k -> m (Dynamic t (GridOrdering k))

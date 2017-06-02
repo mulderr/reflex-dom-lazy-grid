@@ -24,6 +24,8 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 
 import           GHCJS.DOM.Element hiding (drop)
+import qualified GHCJS.DOM.Element as DOM
+import qualified GHCJS.DOM.HTMLElement as DOM
 import           GHCJS.DOM.EventM (on)
 import qualified GHCJS.DOM.GlobalEventHandlers as Events
 import           GHCJS.DOM.Types (MonadJSM, liftJSM)
@@ -34,7 +36,6 @@ import           GHCJS.Foreign
 import           GHCJS.Marshal
 import           GHCJS.DOM.Blob
 import qualified GHCJS.DOM.Document as D
-import qualified GHCJS.DOM.HTMLElement as HE
 import           GHCJS.DOM.URL
 #endif
 
@@ -62,7 +63,7 @@ triggerDownload doc mime filename s = do
   setAttribute a ("style" :: String) ("display: none;" :: String)
   setAttribute a ("download" :: String) filename
   setAttribute a ("href" :: String) url
-  HE.click $ HE.HTMLElement $ unElement a
+  DOM.click $ DOM.HTMLElement $ unElement a
   revokeObjectURL windowUrl url
 
 -- for triggerDownload
@@ -109,28 +110,29 @@ resizeDetectorWithAttrs' attrs w = do
       (expand, (expandChild, _)) <- elAttr' "div" containerAttrs $ elAttr' "div" ("style" =: childStyle) $ return ()
       (shrink, _) <- elAttr' "div" containerAttrs $ elAttr "div" ("style" =: (childStyle <> "width: 200%; height: 200%;")) $ return ()
       return (expand, expandChild, shrink, w')
-  let reset = do
-        let e = _element_raw expand
+  let p = DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw parent
+      reset = do
+        let e = DOM.uncheckedCastTo DOM.HTMLElement $ _element_raw expand
             s = _element_raw shrink
-        eow <- getOffsetWidth e
-        eoh <- getOffsetHeight e
+        eow <- DOM.getOffsetWidth e
+        eoh <- DOM.getOffsetHeight e
         let ecw = eow + 10
             ech = eoh + 10
         setAttribute (_element_raw expandChild) ("style" :: Text) (childStyle <> "width: " <> T.pack (show ecw) <> "px;" <> "height: " <> T.pack (show ech) <> "px;")
-        esw <- getScrollWidth e
+        esw <- DOM.getScrollWidth e
         setScrollLeft e esw
-        esh <- getScrollHeight e
+        esh <- DOM.getScrollHeight e
         setScrollTop e esh
-        ssw <- getScrollWidth s
+        ssw <- DOM.getScrollWidth s
         setScrollLeft s ssw
-        ssh <- getScrollHeight s
+        ssh <- DOM.getScrollHeight s
         setScrollTop s ssh
-        lastWidth <- getOffsetWidth (_element_raw parent)
-        lastHeight <- getOffsetHeight (_element_raw parent)
+        lastWidth <- DOM.getOffsetWidth p
+        lastHeight <- DOM.getOffsetHeight p
         return (Just lastWidth, Just lastHeight)
       resetIfChanged ds = do
-        pow <- getOffsetWidth (_element_raw parent)
-        poh <- getOffsetHeight (_element_raw parent)
+        pow <- DOM.getOffsetWidth p
+        poh <- DOM.getOffsetHeight p
         if ds == (Just pow, Just poh)
           then return Nothing
           else fmap Just reset
