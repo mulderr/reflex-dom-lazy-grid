@@ -40,7 +40,7 @@ import           GHCJS.DOM.URL
 #endif
 
 import           Reflex
-import           Reflex.Dom
+import           Reflex.Dom.Core
 
 {-# INLINABLE tshow #-}
 tshow :: Show a => a -> Text

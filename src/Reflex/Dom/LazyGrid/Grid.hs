@@ -14,6 +14,7 @@ module Reflex.Dom.LazyGrid.Grid
   ) where
 
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Align (alignWith)
 import           Data.Default
 import           Data.List (sortBy)
 import           Data.Map (Map)
@@ -21,10 +22,11 @@ import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.These (these)
 import           GHCJS.DOM.HTMLElement (getOffsetHeight)
 import qualified GHCJS.DOM.Types as DOM
 import           Reflex
-import           Reflex.Dom
+import           Reflex.Dom.Core
 
 import           Reflex.Dom.LazyGrid.DomUtils (resizeDetectorWithAttrs', tshow)
 import           Reflex.Dom.LazyGrid.Types
@@ -132,10 +134,11 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
           gridState = (,,,) cols <$> rows <*> filters <*> sortState
           xs = gridManager gridState
 
-      initE <- delay 0.2 =<< getPostBuild
-      initHeightE <- performEvent $ elHeight tbody <$ initE
-      resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
-      tbodyHeight <- holdUniqDyn =<< holdDyn 0 (fmap ceiling $ leftmost [resizeE, initHeightE])
+      pb <- getPostBuild
+      rec initE <- delay 0.1 $ leftmost [pb, gate (fmap (== 0) $ current tbodyHeight) initE]
+          initHeightE <- performEvent $ elHeight tbody <$ initE
+          resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
+          tbodyHeight <- holdUniqDyn =<< holdDyn 0 (fmap ceiling $ alignWith (these id id max) resizeE initHeightE)
       scrollTop <- holdDyn 0 $ fmap floor $ domEvent Scroll tbody
 
       -- debugging
