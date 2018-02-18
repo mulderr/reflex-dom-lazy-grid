@@ -8,7 +8,7 @@ import Language.Javascript.JSaddle
 import Reflex
 import Reflex.Dom.Core
 
--- | Create an Event that is fired whenever an element
+-- | Create an Event that is fired whenever an element is resized (via ResizeObserver API)
 resizeObserver :: (DomBuilder t m, TriggerEvent t m, MonadJSM m, DomBuilderSpace m ~ GhcjsDomSpace)
   => Element EventResult (DomBuilderSpace m) t -> m (Event t ())
 resizeObserver observedEl = do

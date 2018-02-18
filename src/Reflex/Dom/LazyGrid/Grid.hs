@@ -1,9 +1,9 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module Reflex.Dom.LazyGrid.Grid
   ( gridManager
@@ -29,6 +29,7 @@ import           Reflex
 import           Reflex.Dom.Core
 
 import           Reflex.Dom.LazyGrid.DomUtils (resizeDetectorWithAttrs', tshow)
+import           Reflex.Dom.LazyGrid.Resize
 import           Reflex.Dom.LazyGrid.Types
 
 
@@ -121,7 +122,7 @@ gridWindowManager rowHeight extra height scrollTop xs = do
 {-# INLINABLE grid #-}
 grid :: forall t m k v . (MonadWidget t m, Ord k, Enum k, Default k) => GridConfig t m k v -> m (Grid t k v)
 grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect clearSelE gridMenu gridHead gridBody rowAction) = do
-  rec (gridResizeEvent, (table, gmenu, ghead, (GridBody tbody sel))) <- resizeDetectorWithAttrs' attrs $ do
+  rec (containerEl, (table, gmenu, ghead, (GridBody tbody sel))) <- elAttr' "div" attrs $ do
         gmenu <- gridMenu $ GridMenuConfig cols rows xs selected
         (table, (ghead, gbody)) <- elDynAttr' tableTag tableAttrs $ do
           ghead <- gridHead $ GridHeadConfig cs sortState
@@ -135,15 +136,16 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
           xs = gridManager gridState
 
       pb <- getPostBuild
+      resizeE <- resizeObserver containerEl
       rec initE <- delay 0.1 $ leftmost [pb, gate (fmap (== 0) $ current tbodyHeight) initE]
           initHeightE <- performEvent $ elHeight tbody <$ initE
-          resizeE <- performEvent $ elHeight tbody <$ gridResizeEvent
-          tbodyHeight <- holdUniqDyn =<< holdDyn 0 (fmap ceiling $ alignWith (these id id max) resizeE initHeightE)
+          resizeHeightE <- performEvent $ elHeight tbody <$ resizeE
+          tbodyHeight <- holdUniqDyn =<< holdDyn 0 (fmap ceiling $ alignWith (these id id max) resizeHeightE initHeightE)
       scrollTop <- holdDyn 0 $ fmap floor $ domEvent Scroll tbody
 
       -- debugging
       performEvent_ $ ffor initHeightE $ \x -> liftIO $ putStrLn $ "init: " ++ show x
-      performEvent_ $ ffor resizeE $ \x -> liftIO $ putStrLn $ "resize: " ++ show x
+      performEvent_ $ ffor resizeHeightE $ \x -> liftIO $ putStrLn $ "resize: " ++ show x
 
       GridWindow _ _ window rowgroupAttrs <- gridWindowManager rowHeight extra tbodyHeight scrollTop xs
 
