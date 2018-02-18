@@ -19,7 +19,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Reflex.Dom.LazyGrid
                      , Reflex.Dom.LazyGrid.Grid
-                     , Reflex.Dom.LazyGrid.Resize
                      , Reflex.Dom.LazyGrid.Types
   other-modules:       Reflex.Dom.LazyGrid.DomUtils
   build-depends:       base              >= 4.7      && < 5
