@@ -136,10 +136,9 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
           xs = gridManager gridState
 
       pb <- getPostBuild
-      resizeE <- resizeObserver containerEl
+      resizeHeightE <- fmap _domRect_height <$> resizeObserver containerEl
       rec initE <- delay 0.1 $ leftmost [pb, gate (fmap (== 0) $ current tbodyHeight) initE]
           initHeightE <- performEvent $ elHeight tbody <$ initE
-          resizeHeightE <- performEvent $ elHeight tbody <$ resizeE
           tbodyHeight <- holdUniqDyn =<< holdDyn 0 (fmap ceiling $ alignWith (these id id max) resizeHeightE initHeightE)
       scrollTop <- holdDyn 0 $ fmap floor $ domEvent Scroll tbody
 
