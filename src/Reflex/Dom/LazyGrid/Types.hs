@@ -204,10 +204,9 @@ toCsv cols rows = printCSV $ toFields <$> Map.toList rows
 
 exportCsv :: MonadWidget t m => Columns k v -> Event t (Rows k v) -> m ()
 exportCsv cols e = do
-  -- doc <- askDocument
+  doc <- askDocument
 #ifdef ghcjs_HOST_OS
-  -- performEvent_ $ (liftIO . triggerDownload doc "text/csv" "export.csv" . toCsv cols) <$> e
-  return ()
+  performEvent_ $ (liftIO . triggerDownload doc "text/csv" "export.csv" . toCsv cols) <$> e
 #else
   performEvent_ $ (liftIO $ print "export only implemented for GHCJS") <$ e
 #endif

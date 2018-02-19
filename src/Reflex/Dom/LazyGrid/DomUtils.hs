@@ -49,7 +49,7 @@ tshow = T.pack . show
 -- an HTML5 way of locally triggering a file download with arbitrary content
 -- only tested on recent versions of Chrome and Firefox
 triggerDownload
-  :: DOM.HTMLDocument
+  :: DOM.Document
   -> String -- ^ mime type
   -> String -- ^ file name
   -> String -- ^ content
