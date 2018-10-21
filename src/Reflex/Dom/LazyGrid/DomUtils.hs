@@ -1,9 +1,10 @@
-{-# LANGUAGE GADTs
+{-# language
+    GADTs
   , FlexibleContexts
   , OverloadedStrings
   , RecursiveDo
   , ScopedTypeVariables
-  , CPP #-}
+#-}
 
 module Reflex.Dom.LazyGrid.DomUtils
   ( resizeDetectorWithAttrs'
@@ -13,17 +14,15 @@ module Reflex.Dom.LazyGrid.DomUtils
   ) where
 
 import           Control.Lens ((^.))
-import           Control.Monad (liftM, void)
+import           Control.Monad (void)
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class (liftIO)
-import qualified Data.Aeson as AE
-import qualified Data.HashMap.Strict as HM
 import           Data.Map (Map)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
 
-import           GHCJS.DOM.Element hiding (drop)
+import           GHCJS.DOM.Element
 import qualified GHCJS.DOM.Element as DOM
 import qualified GHCJS.DOM.HTMLElement as DOM
 import           GHCJS.DOM.EventM (on)
@@ -31,13 +30,9 @@ import qualified GHCJS.DOM.GlobalEventHandlers as Events
 import           GHCJS.DOM.Types (MonadJSM, liftJSM)
 import qualified GHCJS.DOM.Types as DOM
 
-#ifdef ghcjs_HOST_OS
-import           GHCJS.Foreign
-import           GHCJS.Marshal
 import           GHCJS.DOM.Blob
 import qualified GHCJS.DOM.Document as D
 import           GHCJS.DOM.URL
-#endif
 
 import           Reflex
 import           Reflex.Dom.Core
@@ -49,31 +44,21 @@ tshow = T.pack . show
 -- an HTML5 way of locally triggering a file download with arbitrary content
 -- only tested on recent versions of Chrome and Firefox
 triggerDownload
-  :: DOM.Document
+  :: MonadJSM m
+  => DOM.Document
   -> String -- ^ mime type
   -> String -- ^ file name
   -> String -- ^ content
-  -> IO ()
-#ifdef ghcjs_HOST_OS
+  -> m ()
 triggerDownload doc mime filename s = do
-  windowUrl <- js_windowURL
   blob <- newBlob [s] (Nothing :: Maybe DOM.BlobPropertyBag)
-  (url :: String) <- createObjectURL windowUrl blob
+  (url :: String) <- createObjectURL blob
   a <- D.createElement doc ("a" :: String)
   setAttribute a ("style" :: String) ("display: none;" :: String)
   setAttribute a ("download" :: String) filename
   setAttribute a ("href" :: String) url
   DOM.click $ DOM.HTMLElement $ unElement a
-  revokeObjectURL windowUrl url
-
--- for triggerDownload
--- cannot use newURL; createObjectURL is only defined for window.URL?
-foreign import javascript unsafe "window[\"URL\"]"
-        js_windowURL :: IO URL
-
-#else
-triggerDownload doc mime filename s = return ()
-#endif
+  revokeObjectURL url
 
 -- | Text input with a button to clear the value.
 -- The button content ie. icon or text is to be defined through CSS using btnClass.

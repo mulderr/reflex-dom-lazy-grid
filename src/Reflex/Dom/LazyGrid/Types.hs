@@ -1,20 +1,19 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# language
+    OverloadedStrings
+  , RecursiveDo
+  , TemplateHaskell
+  , TypeFamilies
+#-}
 
 module Reflex.Dom.LazyGrid.Types where
 
-import           Control.Lens ((^.), makeLenses)
+import           Control.Lens.TH (makeLenses)
 import           Control.Monad (forM, forM_, join)
-import           Control.Monad.IO.Class (liftIO)
 import           Data.Bool (bool)
 import           Data.Default
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
-import           Data.Maybe (isJust)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Reflex
@@ -182,7 +181,7 @@ mkGridMenu (GridMenuConfig cols rows filtered selected) = el "div" $ do
     (exportEl, _) <- el' "li" $ text "Export all data as csv"
     (exportVisibleEl, _) <- el' "li" $ text "Export visible data as csv"
     (exportSelectedEl, _) <- el' "li" $ text "Export selected data as csv"
-    toggles <- flip Map.traverseWithKey cols $ \k c -> el "div" $ do
+    toggles <- forM cols $ \c -> el "div" $ do
         rec (toggleEl, _) <- elDynAttr' "li" attrs $ text $ _colHeader c
             dt <- toggle (_colVisible c) (domEvent Click toggleEl)
             let attrs = ffor dt $ \v -> "class" =: ("grid-menu-col " <> bool "grid-menu-col-hidden" "grid-menu-col-visible" v)
@@ -205,11 +204,7 @@ toCsv cols rows = printCSV $ toFields <$> Map.toList rows
 exportCsv :: MonadWidget t m => Columns k v -> Event t (Rows k v) -> m ()
 exportCsv cols e = do
   doc <- askDocument
-#ifdef ghcjs_HOST_OS
-  performEvent_ $ (liftIO . triggerDownload doc "text/csv" "export.csv" . toCsv cols) <$> e
-#else
-  performEvent_ $ (liftIO $ print "export only implemented for GHCJS") <$ e
-#endif
+  performEvent_ $ (triggerDownload doc "text/csv" "export.csv" . toCsv cols) <$> e
 
 -- | Default head widget implementation.
 {-# INLINABLE mkGridHead #-}
@@ -262,8 +257,8 @@ mkGridBody (GridBodyConfig cols rows window selected attrs rowAction) = do
 mkGridRow :: (MonadWidget t m) => Columns k v -> (k, k) -> v -> Dynamic t Bool -> m (El t)
 mkGridRow cs k v dsel = do
   let attrs = ffor dsel $ bool mempty ("class" =: "grid-row-selected")
-  (el, _) <- elDynAttr' "tr" attrs $ forM_ cs $ \c -> elAttr "td" (_colAttrs c) $ text ((_colValue c) k v)
-  return el
+  (e, _) <- elDynAttr' "tr" attrs $ forM_ cs $ \c -> elAttr "td" (_colAttrs c) $ text ((_colValue c) k v)
+  return e
 
 makeLenses ''Column
 makeLenses ''GridConfig

@@ -1,9 +1,10 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# language
+    OverloadedStrings
+  , RecursiveDo
+  , ScopedTypeVariables
+  , TemplateHaskell
+  , TypeFamilies
+#-}
 
 module Reflex.Dom.LazyGrid.Grid
   ( gridManager
@@ -21,7 +22,6 @@ import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
-import qualified Data.Text as T
 import           Data.These (these)
 import           GHCJS.DOM.HTMLElement (getOffsetHeight)
 import qualified GHCJS.DOM.Types as DOM
@@ -44,7 +44,7 @@ gridManager = fmap f
 -- | Apply filters to a set of rows.
 {-# INLINABLE gridFilter #-}
 gridFilter :: Ord k => Columns k v -> Filters k -> Rows k v -> Rows k v
-gridFilter cols fs xs = Map.foldrWithKey (applyOne cols) xs fs
+gridFilter cols0 fs xs0 = Map.foldrWithKey (applyOne cols0) xs0 fs
   where
     applyOne _ _ "" xs = xs
     applyOne cols k s xs = case Map.lookup k cols of
@@ -56,9 +56,9 @@ gridFilter cols fs xs = Map.foldrWithKey (applyOne cols) xs fs
 -- | Apply column sorting to a set of rows.
 {-# INLINABLE gridSort #-}
 gridSort :: (Ord k, Enum k) => Columns k v -> GridOrdering k -> Rows k v -> Rows k v
-gridSort cols (GridOrdering k sortOrder) = Map.fromList . sort . Map.toList
+gridSort cols0 (GridOrdering k sortOrder) = Map.fromList . sort . Map.toList
   where
-    sort = reindex . maybe id id (maybeSortFunc k cols)
+    sort = reindex . maybe id id (maybeSortFunc k cols0)
     maybeSortFunc k cols = Map.lookup k cols >>= _colCompare >>= \f ->
       let f' = (\(_, v1) (_, v2) -> f v1 v2)
       in case sortOrder of
@@ -92,8 +92,8 @@ gridWindowManager rowHeight extra height scrollTop xs = do
       in if abs (x' - prev) >= extra then x' else prev
 
     toWindowSize :: Int -> Int
-    toWindowSize height =
-      height `div` rowHeight + 1 + 2*extra
+    toWindowSize h =
+      h `div` rowHeight + 1 + 2*extra
 
     toWindow :: Int -> Int -> Rows k v -> Rows k v
     toWindow firstIdx wsize =
