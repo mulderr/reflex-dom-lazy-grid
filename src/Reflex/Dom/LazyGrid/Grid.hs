@@ -142,8 +142,8 @@ grid (GridConfig attrs tableTag tableAttrs rowHeight extra cols rows rowSelect c
       scrollTop <- holdDyn 0 $ fmap floor $ domEvent Scroll tbody
 
       -- debugging
-      performEvent_ $ ffor initHeightE $ \x -> liftIO $ putStrLn $ "init: " ++ show x
-      performEvent_ $ ffor resizeE $ \x -> liftIO $ putStrLn $ "resize: " ++ show x
+      -- performEvent_ $ ffor initHeightE $ \x -> liftIO $ putStrLn $ "init: " ++ show x
+      -- performEvent_ $ ffor resizeE $ \x -> liftIO $ putStrLn $ "resize: " ++ show x
 
       GridWindow _ _ window rowgroupAttrs <- gridWindowManager rowHeight extra tbodyHeight scrollTop xs
 
